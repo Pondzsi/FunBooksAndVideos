@@ -1,3 +1,4 @@
+using FunBooksAndVideos.Application.Orders;
 using FunBooksAndVideos.Application.Orders.Processing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,6 +12,10 @@ public static class DependencyInjection
         services.AddScoped<IPurchaseOrderRule, ActivateMembershipRule>();
         services.AddScoped<IPurchaseOrderRule, GenerateShippingSlipRule>();
         services.AddScoped<PurchaseOrderProcessor>();
+        services.AddScoped<PlacePurchaseOrder>();
+
+        // Finds the domain event handlers in this assembly.
+        services.AddMediatR(configuration => configuration.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly));
 
         return services;
     }
