@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Greenfield code kata. The solution is scaffolded and the Domain has the product types, `PurchaseOrder` with its item lines, and `Customer` with its `Membership`s, all tested. Not built yet: `ShippingSlip`, the Application layer (processor and rules), Infrastructure, and any endpoints.
+Greenfield code kata. The solution is scaffolded. The Domain has the product types, `PurchaseOrder`, `Customer` with its `Membership`s, and `ShippingSlip`, and the Application layer has the processor with BR1 and BR2, all tested. Not built yet: the place-order use case (with its repository interfaces, event publishing and handlers), Infrastructure, and any endpoints.
 
 The spec is `API Lead - Code Kata.pdf`. `NOTES.md` is the author's first-person running log of assumptions and design decisions; read it before making modeling decisions and treat what it records as settled unless the user says otherwise. `README.md` is empty.
 
@@ -12,7 +12,7 @@ The spec is `API Lead - Code Kata.pdf`. `NOTES.md` is the author's first-person 
 
 C# on .NET, exposed as a Web API built with **Controllers** (`[ApiController]` classes, not minimal APIs). The code follows Clean Code principles and is laid out as Clean Architecture, where dependencies point inward only:
 
-- **Domain** (innermost): entities and business types such as the `Product` subtypes, `PurchaseOrder`, `Membership`, `ShippingSlip`. References nothing else.
+- **Domain** (innermost): entities and business types such as the `Product` subtypes, `PurchaseOrder`, `Membership`, `ShippingSlip`. References nothing else except `MediatR.Contracts` (interfaces only, for `IDomainEvent`).
 - **Application**: the Purchase Order Processor and the business rules it runs (BR1, BR2), plus interfaces for anything it needs from outside, such as persistence.
 - **Infrastructure**: implementations of those interfaces.
 - **API** (outermost): Controllers, request/response DTOs, and the DI composition root.
@@ -53,7 +53,13 @@ Summary of `NOTES.md` plus later decisions (`NOTES.md` wins if they disagree):
 - Membership definitions are catalog data: a `MembershipProduct` carries a price and the set of categories it grants (seed: Book Club {Book}, Video Club {Video}, Premium {Book, Video}). A new membership is a new row, not code. New *categories* still need code until categories become data.
 - Premium is one order line and one account `Membership` covering both categories. Access is the union of the customer's active memberships, so there is no auto-upgrade logic.
 - `Customer.ActivateMembership` copies the granted categories from the `MembershipProduct` (so later catalog edits don't change what the customer got), takes the activation time as a parameter (the Domain never reads the clock), and does nothing if the customer already holds that product.
+- Aggregates (`Customer`, `ShippingSlip`) derive from `AggregateRoot` and record domain events (`MembershipActivated`, `ShippingSlipGenerated`) rather than calling anything. Nothing publishes them yet; the place-order use case will publish them through MediatR after saving. If MediatR itself is added, pin 12.5.0, the last Apache-2.0 release (13 and later ship a custom license); `MediatR.Contracts` 2.0.1 is Apache-2.0.
+- `ShippingSlip` is identified by its order's ID (one slip per order), lists the order's physical items, and is created with `ShippingSlip.Generate(order, at)`, which needs at least one physical product.
 - Prices come only from the catalog: callers send product IDs, never prices. Each `PurchaseOrderItem` keeps the price at order time, and the total is computed. There are no quantities (the PDF has one item line per product purchased).
 - IDs are numeric (`long`). The server generates the PO ID before the order is constructed (for example allocated through the repository), so `PurchaseOrder` always has an identity. The customer ID is supplied by the caller and must exist.
 - Domain invariants are guard clauses that throw (`Argument*Exception`); there is no Result type.
 - Assumed, since the PDF doesn't say: books are physical; videos and memberships are digital. An order of only videos and memberships therefore needs no shipping slip.
+
+## Order processing
+
+`PurchaseOrderProcessor` runs every registered `IPurchaseOrderRule` (BR1 `ActivateMembershipRule`, BR2 `GenerateShippingSlipRule`) against a `PurchaseOrderProcessingContext`: the order, the customer who placed it, the processing time, and any `ShippingSlip` a rule produced. Rules are synchronous and only change domain objects. Loading, saving and publishing events belong to the calling use case, so all changes land together. Adding a rule is a new `IPurchaseOrderRule` class plus one registration line in `AddApplication()`; rules run in registration order and the processor never changes.

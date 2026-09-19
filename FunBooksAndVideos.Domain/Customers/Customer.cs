@@ -1,8 +1,9 @@
+using FunBooksAndVideos.Domain.Common;
 using FunBooksAndVideos.Domain.Products;
 
 namespace FunBooksAndVideos.Domain.Customers;
 
-public sealed class Customer
+public sealed class Customer : AggregateRoot
 {
     private readonly List<Membership> _memberships = [];
 
@@ -31,6 +32,7 @@ public sealed class Customer
         }
 
         _memberships.Add(new Membership(product, activatedAt));
+        Raise(new MembershipActivated(Id, product.Id));
     }
 
     public bool HasAccessTo(ProductCategory category)
