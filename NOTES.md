@@ -30,3 +30,8 @@ BR - Business Rule
 - For product categories (book,video) I will create an enum for now since its a kata, it would become an entity in the database when we would need more categories
 - Memberships are products
 - Product Subtypes are MembershipProduct, PhysicalProduct, DigitalProduct and they are describing how they are handled
+
+# Way of thinking while building the solution
+- I am using AI to help me write code faster
+- I am using Clean Arhitecture to separate things out
+- I am using .NET 10 with Controllers not Minimal API-s, its just personal preference

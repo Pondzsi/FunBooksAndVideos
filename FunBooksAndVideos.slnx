@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="FunBooksAndVideos.Api/FunBooksAndVideos.Api.csproj" />
+  <Project Path="FunBooksAndVideos.Application/FunBooksAndVideos.Application.csproj" />
+  <Project Path="FunBooksAndVideos.Domain/FunBooksAndVideos.Domain.csproj" />
+  <Project Path="FunBooksAndVideos.Infrastructure/FunBooksAndVideos.Infrastructure.csproj" />
+  <Project Path="FunBooksAndVideos.Tests/FunBooksAndVideos.Tests.csproj" />
+</Solution>

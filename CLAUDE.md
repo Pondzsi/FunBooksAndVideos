@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Greenfield code kata. There is no source code, solution, or test suite yet, so there are no build/lint/test commands to record. Once the solution is scaffolded, add here its path, the test framework chosen, and the commands to build, run the API, and run a single test.
+Greenfield code kata. The solution is scaffolded (structure only): everything builds and the API boots, but there is no domain code, no endpoints, and no tests yet.
 
 The spec is `API Lead - Code Kata.pdf`. `NOTES.md` is the author's first-person running log of assumptions and design decisions; read it before making modeling decisions and treat what it records as settled unless the user says otherwise. `README.md` is empty.
 
@@ -16,6 +16,18 @@ C# on .NET, exposed as a Web API built with **Controllers** (`[ApiController]` c
 - **Application**: the Purchase Order Processor and the business rules it runs (BR1, BR2), plus interfaces for anything it needs from outside, such as persistence.
 - **Infrastructure**: implementations of those interfaces.
 - **API** (outermost): Controllers, request/response DTOs, and the DI composition root.
+
+Each layer is its own project in a `FunBooksAndVideos.<Layer>` folder at the repo root (no `src/` or `tests/` folders), and project references enforce the rule (Application → Domain, Infrastructure → Application, Api → Application + Infrastructure), so an outward reference won't compile. Don't add one. Shared settings (`net10.0`, nullable, implicit usings) live in `Directory.Build.props`, so leave them out of `.csproj` files. Application and Infrastructure each expose a `DependencyInjection.cs` extension (`AddApplication()`, `AddInfrastructure()`) that `Program.cs` calls; register new services there, not in the Api.
+
+## Commands
+
+Run from the repo root; the solution is `FunBooksAndVideos.slnx`.
+
+- Build: `dotnet build`
+- Test: `dotnet test` (xUnit). Single test: `dotnet test --filter "FullyQualifiedName~<TestOrClassName>"`.
+- Run the API: `dotnet run --project FunBooksAndVideos.Api --launch-profile http` serves `http://localhost:5163`, with the OpenAPI document at `/openapi/v1.json` (Development only).
+
+All tests live in the single `FunBooksAndVideos.Tests` project. It is empty (`dotnet test` prints "No test is available" and exits 0) and references only Application, so Domain comes in transitively. Add references to Api (plus `Microsoft.AspNetCore.Mvc.Testing` for `WebApplicationFactory`) and Infrastructure when the first controller and repository tests need them.
 
 ## The task (from the PDF)
 
