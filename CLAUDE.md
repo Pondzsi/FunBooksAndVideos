@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Greenfield code kata. The solution is scaffolded (structure only): everything builds and the API boots, but there is no domain code, no endpoints, and no tests yet.
+Greenfield code kata. The solution is scaffolded and the Domain has its first slice: the product types, `PurchaseOrder` and its item lines, with tests. Not built yet: `Customer` and `Membership`, `ShippingSlip`, the Application layer (processor and rules), Infrastructure, and any endpoints.
 
 The spec is `API Lead - Code Kata.pdf`. `NOTES.md` is the author's first-person running log of assumptions and design decisions; read it before making modeling decisions and treat what it records as settled unless the user says otherwise. `README.md` is empty.
 
@@ -27,7 +27,7 @@ Run from the repo root; the solution is `FunBooksAndVideos.slnx`.
 - Test: `dotnet test` (xUnit). Single test: `dotnet test --filter "FullyQualifiedName~<TestOrClassName>"`.
 - Run the API: `dotnet run --project FunBooksAndVideos.Api --launch-profile http` serves `http://localhost:5163`, with the OpenAPI document at `/openapi/v1.json` (Development only).
 
-All tests live in the single `FunBooksAndVideos.Tests` project. It is empty (`dotnet test` prints "No test is available" and exits 0) and references only Application, so Domain comes in transitively. Add references to Api (plus `Microsoft.AspNetCore.Mvc.Testing` for `WebApplicationFactory`) and Infrastructure when the first controller and repository tests need them.
+All tests live in the single `FunBooksAndVideos.Tests` project, in folders that mirror the layers (`Domain/...`). It references only Application, so Domain comes in transitively. Add references to Api (plus `Microsoft.AspNetCore.Mvc.Testing` for `WebApplicationFactory`) and Infrastructure when the first controller and repository tests need them.
 
 ## The task (from the PDF)
 
@@ -45,11 +45,14 @@ A purchase order has a PO ID, customer ID, total price, and one item line per pr
 
 ## Domain model decisions
 
-Summary of `NOTES.md` (which wins if they disagree):
+Summary of `NOTES.md` plus later decisions (`NOTES.md` wins if they disagree):
 
 - Customer and User are the same thing.
-- `Product` is a base type split by *how it is handled*, not what it is: `MembershipProduct` (activated, BR1), `PhysicalProduct` (shipped, BR2), `DigitalProduct` (nothing extra). Book/video is a separate category enum, so a DVD (physical video) or ebook (digital book) fits without a new type.
+- `Product` is a base type split by *how it is handled*, not what it is: `MembershipProduct` (activated, BR1), `PhysicalProduct` (shipped, BR2), `DigitalProduct` (nothing extra). Book/video is a separate `ProductCategory` enum, so a DVD (physical video) or ebook (digital book) fits without a new type.
 - A membership is two things: a purchasable `MembershipProduct` and a `Membership` held on the customer account.
-- Premium = Book + Video membership: one item line on the order, but it grants both memberships on the account.
+- Membership definitions are catalog data: a `MembershipProduct` carries a price and the set of categories it grants (seed: Book Club {Book}, Video Club {Video}, Premium {Book, Video}). A new membership is a new row, not code. New *categories* still need code until categories become data.
+- Premium is one order line and one account `Membership` covering both categories. Access is the union of the customer's active memberships, so there is no auto-upgrade logic.
+- Prices come only from the catalog: callers send product IDs, never prices. Each `PurchaseOrderItem` keeps the price at order time, and the total is computed. There are no quantities (the PDF has one item line per product purchased).
+- IDs are numeric (`long`). The server generates the PO ID before the order is constructed (for example allocated through the repository), so `PurchaseOrder` always has an identity. The customer ID is supplied by the caller and must exist.
+- Domain invariants are guard clauses that throw (`Argument*Exception`); there is no Result type.
 - Assumed, since the PDF doesn't say: books are physical; videos and memberships are digital. An order of only videos and memberships therefore needs no shipping slip.
-- Other entities: `Customer`, `PurchaseOrder`, `PurchaseOrderItem`, `ShippingSlip`.
