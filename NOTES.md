@@ -37,7 +37,9 @@ BR - Business Rule
 - I am using .NET 10 with Controllers not Minimal API-s, its just personal preference
 - I am building the application layer by layer and at the end I might refactor certain parts if I am not happy with them
 - I am using docker for database since its easy to spin it up on a new machine
-- 
+- I am running AI agents on the code afterwards to check out the developed code against requirement and my notes (this file)
+- I am also running an AI agent that creates a small frontend for demonstration purposes
+- I gathered all the design patterns I could find that are used in the project and afterwards let AI to spot if I missed any
 
 # Design Patterns Used
 ## Behavior

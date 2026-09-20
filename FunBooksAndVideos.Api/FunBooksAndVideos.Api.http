@@ -3,6 +3,31 @@
 ### The catalog: books, videos and the three memberships
 GET {{host}}/api/v1/products
 
+### Add a product: a physical book, or a membership that grants one category or more
+POST {{host}}/api/v1/products
+Content-Type: application/json
+
+{
+  "kind": "Physical",
+  "name": "Refactoring",
+  "price": 39.99,
+  "categories": ["Book"]
+}
+
+### Create a customer
+POST {{host}}/api/v1/customers
+Content-Type: application/json
+
+{
+  "name": "Ada Lovelace"
+}
+
+### All customers, with their memberships
+GET {{host}}/api/v1/customers
+
+### All orders, oldest first (add ?customerId=4567890 to see one customer's)
+GET {{host}}/api/v1/purchase-orders
+
 ### The demo customer before ordering: no memberships, no access
 GET {{host}}/api/v1/customers/4567890
 

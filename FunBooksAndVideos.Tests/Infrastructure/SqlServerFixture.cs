@@ -1,5 +1,6 @@
 using FunBooksAndVideos.Application;
 using FunBooksAndVideos.Infrastructure;
+using FunBooksAndVideos.Tests.Api;
 using FunBooksAndVideos.Tests.Application;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -40,7 +41,11 @@ public sealed class SqlServerFixture : IAsyncLifetime
         var connectionString = NewConnectionString();
 
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:Default"] = connectionString })
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = connectionString,
+                ["Database:CommandTimeoutSeconds"] = ApiFactory.SlowSqlServerCommandTimeoutSeconds,
+            })
             .Build();
 
         var services = new ServiceCollection();

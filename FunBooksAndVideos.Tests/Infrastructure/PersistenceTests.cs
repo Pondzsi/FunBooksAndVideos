@@ -1,5 +1,7 @@
 using FunBooksAndVideos.Application.Common;
+using FunBooksAndVideos.Application.Customers;
 using FunBooksAndVideos.Application.Orders;
+using FunBooksAndVideos.Application.Products;
 using FunBooksAndVideos.Application.Shipping;
 using FunBooksAndVideos.Domain.Orders;
 using FunBooksAndVideos.Domain.Products;
@@ -114,6 +116,22 @@ public class PersistenceTests(SqlServerFixture fixture)
 
         Assert.True(first > 0);
         Assert.Equal(first + 1, second);
+    }
+
+    [SqlServerFact]
+    public async Task Customer_and_product_ids_come_from_their_own_sequences()
+    {
+        await using var provider = await fixture.CreateSeededDatabaseAsync();
+        await using var scope = provider.CreateAsyncScope();
+        var customers = scope.ServiceProvider.GetRequiredService<ICustomerRepository>();
+        var products = scope.ServiceProvider.GetRequiredService<IProductRepository>();
+
+        var firstCustomer = await customers.NextIdAsync(CancellationToken.None);
+        var secondCustomer = await customers.NextIdAsync(CancellationToken.None);
+        var firstProduct = await products.NextIdAsync(CancellationToken.None);
+
+        Assert.Equal((1L, 2L), (firstCustomer, secondCustomer));
+        Assert.Equal(100, firstProduct);
     }
 
     [SqlServerFact]

@@ -17,6 +17,10 @@ public static class DependencyInjection
         services.AddScoped<PurchaseOrderProcessor>();
         services.AddScoped<PlacePurchaseOrder>();
         services.AddScoped<GetPurchaseOrder>();
+        services.AddScoped<GetPurchaseOrders>();
+        services.AddScoped<CreateCustomer>();
+        services.AddScoped<GetCustomers>();
+        services.AddScoped<CreateProduct>();
         services.AddScoped<GetShippingSlip>();
         services.AddScoped<GetCustomer>();
         services.AddScoped<GetProduct>();

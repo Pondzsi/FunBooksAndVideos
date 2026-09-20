@@ -7,13 +7,30 @@ namespace FunBooksAndVideos.Api.Controllers;
 [Route("api/v1/products")]
 public sealed class ProductsController : ApiControllerBase
 {
+    private readonly CreateProduct _createProduct;
     private readonly GetProducts _getProducts;
     private readonly GetProduct _getProduct;
 
-    public ProductsController(GetProducts getProducts, GetProduct getProduct)
+    public ProductsController(CreateProduct createProduct, GetProducts getProducts, GetProduct getProduct)
     {
+        _createProduct = createProduct;
         _getProducts = getProducts;
         _getProduct = getProduct;
+    }
+
+    /// <summary>Adds a product to the catalog: a physical or digital product in one category, or a membership that grants one or more.</summary>
+    [HttpPost]
+    [ProducesResponseType<ProductResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ProductResponse>> Create(CreateProductRequest request, CancellationToken cancellationToken)
+    {
+        var product = await _createProduct.ExecuteAsync(
+            new CreateProductCommand(request.Kind!.Value, request.Name, request.Price, request.Categories),
+            cancellationToken);
+
+        var response = ProductResponse.From(product);
+
+        return CreatedAtAction(nameof(Get), new { id = response.Id }, response);
     }
 
     /// <summary>Lists the catalog: books, videos and memberships.</summary>

@@ -9,10 +9,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Enums travel as names ("Book"), in the API and in the OpenAPI document.
+// Enums travel as names ("Book"), in the API and in the OpenAPI document. A number where a name belongs is rejected.
 builder.Services.AddControllers()
-    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 
 // Every error, including validation failures and unhandled exceptions, is an RFC 9457 Problem Details response.
 builder.Services.AddProblemDetails();
@@ -22,7 +22,18 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-await app.Services.InitializeDatabaseAsync();
+try
+{
+    await app.Services.InitializeDatabaseAsync();
+}
+catch (DatabaseInitializationException exception)
+{
+    // One readable line instead of a stack trace: the usual cause is that the database container is not running.
+    app.Logger.LogCritical("{Message}", exception.Message);
+    Environment.ExitCode = 1;
+
+    return;
+}
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();

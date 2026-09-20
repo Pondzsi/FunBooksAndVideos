@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using FunBooksAndVideos.Api.Contracts.Customers;
 using FunBooksAndVideos.Api.Contracts.Products;
+using FunBooksAndVideos.Application.Products;
 using FunBooksAndVideos.Domain.Products;
 using FunBooksAndVideos.Tests.Infrastructure;
 
@@ -114,6 +115,17 @@ public class CatalogAndCustomerApiTests(SqlServerFixture fixture)
     }
 
     [SqlServerFact]
+    public async Task The_OpenAPI_document_carries_the_summaries_written_on_the_controllers()
+    {
+        await using var factory = new ApiFactory(fixture.NewConnectionString());
+        using var client = factory.CreateClient();
+
+        var document = await client.GetStringAsync("/openapi/v1.json");
+
+        Assert.Contains("Places a purchase order for a customer", document);
+    }
+
+    [SqlServerFact]
     public async Task The_OpenAPI_document_lists_every_endpoint()
     {
         await using var factory = new ApiFactory(fixture.NewConnectionString());
@@ -125,6 +137,7 @@ public class CatalogAndCustomerApiTests(SqlServerFixture fixture)
         Assert.Equal(
             new[]
             {
+                "/api/v1/customers",
                 "/api/v1/customers/{id}",
                 "/api/v1/products",
                 "/api/v1/products/{id}",

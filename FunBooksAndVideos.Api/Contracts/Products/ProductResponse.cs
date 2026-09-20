@@ -1,3 +1,4 @@
+using FunBooksAndVideos.Application.Products;
 using FunBooksAndVideos.Domain.Products;
 
 namespace FunBooksAndVideos.Api.Contracts.Products;
@@ -7,14 +8,6 @@ public sealed record ProductResponse(long Id, string Name, decimal Price, Produc
 {
     public static ProductResponse From(Product product)
     {
-        IReadOnlyList<ProductCategory> categories = product switch
-        {
-            PhysicalProduct physical => [physical.Category],
-            DigitalProduct digital => [digital.Category],
-            MembershipProduct membership => membership.GrantedCategories.Order().ToList(),
-            _ => [],
-        };
-
-        return new ProductResponse(product.Id, product.Name, product.Price, product.ToKind(), categories);
+        return new ProductResponse(product.Id, product.Name, product.Price, product.ToKind(), product.ToCategories());
     }
 }

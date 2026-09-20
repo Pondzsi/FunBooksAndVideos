@@ -11,32 +11,45 @@ public sealed class PurchaseOrdersController : ApiControllerBase
 {
     private readonly PlacePurchaseOrder _placePurchaseOrder;
     private readonly GetPurchaseOrder _getPurchaseOrder;
+    private readonly GetPurchaseOrders _getPurchaseOrders;
     private readonly GetShippingSlip _getShippingSlip;
 
     public PurchaseOrdersController(
         PlacePurchaseOrder placePurchaseOrder,
         GetPurchaseOrder getPurchaseOrder,
+        GetPurchaseOrders getPurchaseOrders,
         GetShippingSlip getShippingSlip)
     {
         _placePurchaseOrder = placePurchaseOrder;
         _getPurchaseOrder = getPurchaseOrder;
+        _getPurchaseOrders = getPurchaseOrders;
         _getShippingSlip = getShippingSlip;
     }
 
     /// <summary>Places a purchase order for a customer. Memberships in it are activated and a shipping slip is generated for physical products.</summary>
     [HttpPost]
-    [ProducesResponseType<PurchaseOrderResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<PlacedPurchaseOrderResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PurchaseOrderResponse>> Place(PlacePurchaseOrderRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<PlacedPurchaseOrderResponse>> Place(PlacePurchaseOrderRequest request, CancellationToken cancellationToken)
     {
         var result = await _placePurchaseOrder.ExecuteAsync(
             new PlacePurchaseOrderCommand(request.CustomerId, request.ProductIds),
             cancellationToken);
 
-        var response = PurchaseOrderResponse.From(result.Order);
+        var response = PlacedPurchaseOrderResponse.From(result);
 
         return CreatedAtAction(nameof(Get), new { id = response.Id }, response);
+    }
+
+    /// <summary>Lists purchase orders, oldest first. Pass customerId to see only one customer's orders.</summary>
+    [HttpGet]
+    [ProducesResponseType<IReadOnlyList<PurchaseOrderResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<PurchaseOrderResponse>>> GetAll([FromQuery] long? customerId, CancellationToken cancellationToken)
+    {
+        var orders = await _getPurchaseOrders.ExecuteAsync(customerId, cancellationToken);
+
+        return orders.Select(PurchaseOrderResponse.From).ToList();
     }
 
     /// <summary>Gets a purchase order with the price each item had when it was placed.</summary>

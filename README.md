@@ -28,7 +28,9 @@ curl -i -X POST http://localhost:5163/api/v1/purchase-orders \
   -d '{"customerId": 4567890, "productIds": [1, 2, 3]}'
 ```
 
-The response is `201 Created` with a `Location` header and the priced order (total `48.50`). Then `GET /api/v1/customers/4567890` shows the Book Club membership, and `GET /api/v1/purchase-orders/{id}/shipping-slip` shows the slip with the book on it.
+The response is `201 Created` with a `Location` header, the priced order (total `48.50`), the memberships it activated (BR1) and `shippingSlipGenerated` (BR2). `GET /api/v1/customers/4567890` then shows the Book Club membership, and `GET /api/v1/purchase-orders/{id}/shipping-slip` shows the slip with the book on it.
+
+If the API exits with "Could not prepare the database on ...", SQL Server isn't reachable: start it with `docker compose up -d --wait` and run the API again.
 
 ## What it does
 
@@ -41,15 +43,18 @@ Processing a purchase order applies the two business rules from the brief:
 
 ## API
 
-Base path `/api/v1`, JSON, camelCase, enums as names (`"Book"`).
+Base path `/api/v1`, JSON, camelCase, enums as names (`"Book"`). A number or an unknown name where an enum belongs is a `400`.
 
 | Method and path | Purpose | Success | Errors |
 |---|---|---|---|
-| `POST /purchase-orders` | Place an order: `{ "customerId", "productIds": [] }` | `201` + `Location` | `400` invalid body, `422` unknown customer or product |
+| `POST /purchase-orders` | Place an order: `{ "customerId", "productIds": [] }`. The response lists the memberships it activated and whether a slip was generated | `201` + `Location` | `400` invalid body, `422` unknown customer or product |
+| `GET /purchase-orders` | All orders, oldest first. `?customerId=` shows one customer's | `200` | |
 | `GET /purchase-orders/{id}` | An order, with the price each item had when placed | `200` | `404` |
 | `GET /purchase-orders/{id}/shipping-slip` | The slip BR2 generated | `200` | `404` (also when the order needed none) |
-| `GET /customers/{id}` | Memberships and the categories they give access to | `200` | `404` |
-| `GET /products`, `GET /products/{id}` | The catalog | `200` | `404` |
+| `POST /customers` | Create a customer: `{ "name" }` | `201` + `Location` | `400` |
+| `GET /customers`, `GET /customers/{id}` | Customers, with their memberships and the categories those give access to | `200` | `404` for an unknown ID |
+| `POST /products` | Add to the catalog: `{ "kind": "Physical" \| "Digital" \| "Membership", "name", "price", "categories": [] }`. A physical or digital product has exactly one category, a membership one or more | `201` + `Location` | `400` |
+| `GET /products`, `GET /products/{id}` | The catalog | `200` | `404` for an unknown ID |
 
 - **Errors** are always [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details (`application/problem+json`): validation, missing resources, unknown routes and unhandled exceptions alike.
 - **`422` versus `404`**: a missing resource in the URL is `404`. A customer or product named in a request body that doesn't exist is `422`, because the request is well formed but can't be processed. The body names the missing ID.
@@ -75,7 +80,7 @@ Api ───────────► Application ───────► Do
 
 Dependencies point inward only, and project references enforce it. Each layer is a project at the repo root:
 
-- **Domain**: entities and rules that don't depend on anything. It never reads the clock or touches a database.
+- **Domain**: entities and rules, with no dependency on other layers or frameworks. Its one package is `MediatR.Contracts`, the interfaces for domain events. It never reads the clock or touches a database.
 - **Application**: the `PlacePurchaseOrder` use case, the processor and rules, and the repository and unit-of-work interfaces.
 - **Infrastructure**: EF Core on SQL Server (mappings, repositories, migrations, seeder).
 - **Api**: Controllers and the composition root.
@@ -90,18 +95,19 @@ Placing an order: load the customer and products, take the next ID from a SQL se
 - Memberships are catalog products carrying the categories they grant (Book Club, Video Club, Premium). **Premium** is one order line and one membership covering both categories, and access is the union of a customer's memberships. A new membership is a new catalog row, not code.
 - Buying a membership the customer already holds changes nothing (no renewal or expiry in the brief).
 - One item line per product purchased, so there are no quantities.
-- IDs are numeric. Order IDs come from a SQL Server sequence, so an order has its ID before it is saved.
+- The seed prices are made up. The PDF gives only the total of its example order (48.50), so the video is 24.00, the book 9.50 and the Book Club membership 15.00.
+- IDs are numeric. Order, customer and new product IDs come from SQL Server sequences, so an object has its ID before it is saved. New products are numbered from 100, because the seed uses 1 to 7.
 - Domain rules throw on invalid state; there is no Result type.
 
 ## Tests
 
-`dotnet test` runs 90 tests:
+`dotnet test` runs 124 tests:
 
 - **Domain and Application**: unit tests, including the PDF's example order through both rules and the whole use case against small fakes.
 - **Infrastructure**: round-trip tests against a real SQL Server started by [Testcontainers](https://testcontainers.com/), with a fresh migrated and seeded database per test.
 - **API**: the whole app in memory over HTTP: the PDF example end to end, and every error path.
 
-The SQL Server tests need Docker and skip themselves when it isn't running. The tests were also checked by deliberately breaking the code and confirming a test failed.
+The SQL Server tests need Docker and skip themselves when it isn't running.
 
 ## Working with the database
 
@@ -110,8 +116,8 @@ dotnet tool restore
 dotnet ef migrations add <Name> --project FunBooksAndVideos.Infrastructure --startup-project FunBooksAndVideos.Api --output-dir Persistence/Migrations
 ```
 
-A test fails if the model and the migrations disagree, so a forgotten migration is caught.
+A test fails if the model and the migrations disagree, so a forgotten migration is caught. Startup retries and the command timeout can be tuned with `Database:MaxRetryCount` and `Database:CommandTimeoutSeconds`; the tests raise the timeout because an emulated SQL Server (Docker on Apple Silicon) can be slow.
 
 ## Not included
 
-Authentication, pagination (the catalog is tiny), idempotency keys (retrying a `POST` places a second order), endpoints to create customers or products (the seed data covers them), and any real reaction to the domain events beyond logging them.
+Authentication, pagination (the catalog is tiny), idempotency keys (retrying a `POST` places a second order), updating or deleting customers, products and orders, and any real reaction to the domain events beyond logging them.

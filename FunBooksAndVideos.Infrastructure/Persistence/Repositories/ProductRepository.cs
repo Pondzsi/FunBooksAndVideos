@@ -13,6 +13,18 @@ internal sealed class ProductRepository : IProductRepository
         _context = context;
     }
 
+    public Task<long> NextIdAsync(CancellationToken cancellationToken)
+    {
+        return SequenceIds.NextAsync(_context, AppDbContext.ProductIdSequence, cancellationToken);
+    }
+
+    public Task AddAsync(Product product, CancellationToken cancellationToken)
+    {
+        _context.Products.Add(product);
+
+        return Task.CompletedTask;
+    }
+
     public Task<Product?> GetByIdAsync(long id, CancellationToken cancellationToken)
     {
         return _context.Products.FirstOrDefaultAsync(product => product.Id == id, cancellationToken);

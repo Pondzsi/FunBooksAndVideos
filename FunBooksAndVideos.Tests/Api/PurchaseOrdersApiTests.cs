@@ -1,9 +1,11 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 using FunBooksAndVideos.Api.Contracts.Customers;
 using FunBooksAndVideos.Api.Contracts.Products;
 using FunBooksAndVideos.Api.Contracts.PurchaseOrders;
 using FunBooksAndVideos.Api.Contracts.Shipping;
+using FunBooksAndVideos.Application.Products;
 using FunBooksAndVideos.Domain.Products;
 using FunBooksAndVideos.Tests.Infrastructure;
 
@@ -30,6 +32,66 @@ public class PurchaseOrdersApiTests(SqlServerFixture fixture)
             new[] { ProductKind.Digital, ProductKind.Physical, ProductKind.Membership },
             order.Items.Select(item => item.Kind));
         Assert.EndsWith($"/api/v1/purchase-orders/{order.Id}", response.Headers.Location!.ToString());
+    }
+
+    [SqlServerFact]
+    public async Task Placing_the_PDF_example_order_reports_what_the_rules_did()
+    {
+        await using var factory = new ApiFactory(fixture.NewConnectionString());
+        using var client = factory.CreateClient();
+
+        var order = await ApiFactory.ReadAsync<PlacedPurchaseOrderResponse>(await ApiFactory.PlaceOrderAsync(client, 4567890, 1, 2, 3));
+
+        var membership = Assert.Single(order.ActivatedMemberships);
+        Assert.Equal(3, membership.ProductId);
+        Assert.Equal(new[] { ProductCategory.Book }, membership.Categories);
+        Assert.True(order.ShippingSlipGenerated);
+        Assert.Equal(
+            new[] { ProductCategory.Video, ProductCategory.Book, ProductCategory.Book },
+            order.Items.Select(item => Assert.Single(item.Categories)));
+    }
+
+    [SqlServerFact]
+    public async Task An_order_of_a_video_and_a_membership_reports_no_shipping_slip()
+    {
+        await using var factory = new ApiFactory(fixture.NewConnectionString());
+        using var client = factory.CreateClient();
+
+        var order = await ApiFactory.ReadAsync<PlacedPurchaseOrderResponse>(await ApiFactory.PlaceOrderAsync(client, 4567890, 1, 3));
+
+        Assert.False(order.ShippingSlipGenerated);
+        Assert.Single(order.ActivatedMemberships);
+    }
+
+    [SqlServerFact]
+    public async Task Ordering_a_membership_the_customer_already_holds_activates_nothing()
+    {
+        await using var factory = new ApiFactory(fixture.NewConnectionString());
+        using var client = factory.CreateClient();
+        await ApiFactory.PlaceOrderAsync(client, 4567890, 3);
+
+        var second = await ApiFactory.ReadAsync<PlacedPurchaseOrderResponse>(await ApiFactory.PlaceOrderAsync(client, 4567890, 3));
+
+        Assert.Empty(second.ActivatedMemberships);
+    }
+
+    [SqlServerFact]
+    public async Task Orders_are_listed_oldest_first_and_can_be_filtered_by_customer()
+    {
+        await using var factory = new ApiFactory(fixture.NewConnectionString());
+        using var client = factory.CreateClient();
+        var otherCustomer = await ApiFactory.ReadAsync<CustomerResponse>(
+            await client.PostAsJsonAsync("/api/v1/customers", new { name = "Grace Hopper" }, ApiFactory.Json));
+        var first = await ApiFactory.ReadAsync<PlacedPurchaseOrderResponse>(await ApiFactory.PlaceOrderAsync(client, 4567890, 1));
+        var second = await ApiFactory.ReadAsync<PlacedPurchaseOrderResponse>(await ApiFactory.PlaceOrderAsync(client, otherCustomer.Id, 2));
+
+        var all = await ApiFactory.ReadAsync<List<PurchaseOrderResponse>>(await client.GetAsync("/api/v1/purchase-orders"));
+        var mine = await ApiFactory.ReadAsync<List<PurchaseOrderResponse>>(await client.GetAsync($"/api/v1/purchase-orders?customerId={otherCustomer.Id}"));
+        var nobody = await ApiFactory.ReadAsync<List<PurchaseOrderResponse>>(await client.GetAsync("/api/v1/purchase-orders?customerId=999"));
+
+        Assert.Equal(new[] { first.Id, second.Id }, all.Select(order => order.Id));
+        Assert.Equal(second.Id, Assert.Single(mine).Id);
+        Assert.Empty(nobody);
     }
 
     [SqlServerFact]

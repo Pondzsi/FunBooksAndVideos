@@ -15,6 +15,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         Converters = { new JsonStringEnumConverter() },
     };
 
+    // SQL Server in a container, especially an emulated one on Apple Silicon, can take well over the default 30 seconds to create a database under load.
+    public const string SlowSqlServerCommandTimeoutSeconds = "120";
+
     private readonly string _connectionString;
 
     public ApiFactory(string connectionString)
@@ -25,7 +28,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureAppConfiguration((_, configuration) =>
-            configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:Default"] = _connectionString }));
+            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = _connectionString,
+                ["Database:CommandTimeoutSeconds"] = SlowSqlServerCommandTimeoutSeconds,
+            }));
     }
 
     public static Task<HttpResponseMessage> PlaceOrderAsync(HttpClient client, long customerId, params long[] productIds)

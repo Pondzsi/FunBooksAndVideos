@@ -10,4 +10,7 @@ public interface IPurchaseOrderRepository
     Task AddAsync(PurchaseOrder order, CancellationToken cancellationToken);
 
     Task<PurchaseOrder?> GetByIdAsync(long id, CancellationToken cancellationToken);
+
+    // Every order, or only the orders of one customer.
+    Task<IReadOnlyList<PurchaseOrder>> GetAllAsync(long? customerId, CancellationToken cancellationToken);
 }

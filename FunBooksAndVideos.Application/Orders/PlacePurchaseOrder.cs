@@ -76,9 +76,13 @@ public sealed class PlacePurchaseOrder
         // The order, the customer's new memberships and the slip are saved together, or not at all.
         await _unitOfWork.CommitAsync(cancellationToken);
 
+        // Read before publishing, which clears the events.
+        var activatedProductIds = customer.DomainEvents.OfType<MembershipActivated>().Select(activated => activated.MembershipProductId).ToHashSet();
+        var activatedMemberships = customer.Memberships.Where(membership => activatedProductIds.Contains(membership.ProductId)).ToList();
+
         await PublishDomainEventsAsync(customer, context.ShippingSlip, cancellationToken);
 
-        return new PlacePurchaseOrderResult(order, context.ShippingSlip);
+        return new PlacePurchaseOrderResult(order, context.ShippingSlip, activatedMemberships);
     }
 
     // Published only after the commit, so handlers never see state that was not persisted.

@@ -1,6 +1,6 @@
 using FunBooksAndVideos.Domain.Products;
 
-namespace FunBooksAndVideos.Api.Contracts.Products;
+namespace FunBooksAndVideos.Application.Products;
 
 public static class ProductKindExtensions
 {

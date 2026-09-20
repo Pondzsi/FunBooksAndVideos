@@ -93,6 +93,28 @@ public class PlacePurchaseOrderTests
     }
 
     [Fact]
+    public async Task Reports_the_memberships_the_order_activated()
+    {
+        var fixture = new Fixture();
+
+        var result = await fixture.UseCase.ExecuteAsync(new(4567890, [1, 2, 3]), CancellationToken.None);
+
+        var membership = Assert.Single(result.ActivatedMemberships);
+        Assert.Equal(TestData.BookClub.Id, membership.ProductId);
+    }
+
+    [Fact]
+    public async Task Does_not_report_a_membership_the_customer_already_held()
+    {
+        var fixture = new Fixture();
+        await fixture.UseCase.ExecuteAsync(new(4567890, [3]), CancellationToken.None);
+
+        var second = await fixture.UseCase.ExecuteAsync(new(4567890, [3]), CancellationToken.None);
+
+        Assert.Empty(second.ActivatedMemberships);
+    }
+
+    [Fact]
     public async Task Fails_for_an_unknown_customer_without_staging_committing_or_publishing()
     {
         var fixture = new Fixture();
@@ -182,6 +204,12 @@ public class PlacePurchaseOrderTests
         {
             return Task.FromResult(Store.GetValueOrDefault(id));
         }
+
+        public Task<long> NextIdAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task AddAsync(Customer customer, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<Customer>> GetAllAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class FakeProducts : IProductRepository
@@ -197,6 +225,10 @@ public class PlacePurchaseOrderTests
         {
             return Task.FromResult<IReadOnlyList<Product>>(Store.Values.ToList());
         }
+
+        public Task<long> NextIdAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task AddAsync(Product product, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class FakeOrders(List<string> calls) : IPurchaseOrderRepository
@@ -220,6 +252,8 @@ public class PlacePurchaseOrderTests
         {
             return Task.FromResult(Added.FirstOrDefault(order => order.Id == id));
         }
+
+        public Task<IReadOnlyList<PurchaseOrder>> GetAllAsync(long? customerId, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class FakeShippingSlips(List<string> calls) : IShippingSlipRepository
