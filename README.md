@@ -1,22 +1,26 @@
 # FunBooksAndVideos
 
-An e-commerce shop where customers buy books, videos and club memberships with a purchase order, built as a REST API for the *API Lead - Code Kata*. Processing an order applies the two business rules from the brief:
+An e-commerce shop where customers buy books, videos and club memberships with a purchase order, built as a REST API for the *API Lead - Code Kata*. C# on .NET 10, ASP.NET Core Controllers, Clean Architecture, EF Core on SQL Server.
 
-- **BR1**: a membership in the order is activated on the customer's account immediately.
-- **BR2**: an order with a physical product gets a shipping slip.
+## Run it locally
 
-C# on .NET 10, ASP.NET Core Controllers, Clean Architecture, EF Core on SQL Server. `NOTES.md` has my assumptions and working notes.
-
-## Run it
-
-You need the [.NET 10 SDK](https://dotnet.microsoft.com/download) and Docker.
+You need the [.NET 10 SDK](https://dotnet.microsoft.com/download) and [Docker](https://www.docker.com/) (SQL Server runs in a container).
 
 ```bash
+git clone https://github.com/Pondzsi/FunBooksAndVideos.git
+cd FunBooksAndVideos
+
 docker compose up -d --wait                                            # SQL Server on localhost:1433
-dotnet run --project FunBooksAndVideos.Api --launch-profile http       # http://localhost:5163
+dotnet run --project FunBooksAndVideos.Api --launch-profile http       # the API on http://localhost:5163
 ```
 
-On startup the API applies the EF migrations and seeds an empty database: seven products (the PDF's example is products 1 to 3) and customer `4567890`. Then open **http://localhost:5163/scalar** for interactive docs, or use `FunBooksAndVideos.Api/FunBooksAndVideos.Api.http`, or curl the PDF's example order:
+That is all the setup. On startup the API creates the database, applies the EF migrations and seeds it: seven products (the PDF's example is products 1 to 3) and customer `4567890`. Then open **http://localhost:5163/scalar** for interactive docs, or use `FunBooksAndVideos.Api/FunBooksAndVideos.Api.http`.
+
+- **Run the tests** with `dotnet test`. The SQL Server tests start their own container, so Docker must be running (they skip themselves if it isn't).
+- **Stop** the API with Ctrl+C and the database with `docker compose down`.
+- The `sa` password in `docker-compose.yml` and `appsettings.json` is a throwaway for that local container.
+
+Try the PDF's example order, where customer `4567890` buys products 1, 2 and 3:
 
 ```bash
 curl -i -X POST http://localhost:5163/api/v1/purchase-orders \
@@ -26,7 +30,14 @@ curl -i -X POST http://localhost:5163/api/v1/purchase-orders \
 
 The response is `201 Created` with a `Location` header and the priced order (total `48.50`). Then `GET /api/v1/customers/4567890` shows the Book Club membership, and `GET /api/v1/purchase-orders/{id}/shipping-slip` shows the slip with the book on it.
 
-Stop the database with `docker compose down`. The `sa` password in `docker-compose.yml` and `appsettings.json` is a throwaway for that local container.
+## What it does
+
+Processing a purchase order applies the two business rules from the brief:
+
+- **BR1**: a membership in the order is activated on the customer's account immediately.
+- **BR2**: an order with a physical product gets a shipping slip.
+
+`NOTES.md` has my assumptions and working notes.
 
 ## API
 
