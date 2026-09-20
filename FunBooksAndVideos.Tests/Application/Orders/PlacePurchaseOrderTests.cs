@@ -192,6 +192,11 @@ public class PlacePurchaseOrderTests
         {
             return Task.FromResult(Store.GetValueOrDefault(id));
         }
+
+        public Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<Product>>(Store.Values.ToList());
+        }
     }
 
     private sealed class FakeOrders(List<string> calls) : IPurchaseOrderRepository
@@ -210,6 +215,11 @@ public class PlacePurchaseOrderTests
 
             return Task.CompletedTask;
         }
+
+        public Task<PurchaseOrder?> GetByIdAsync(long id, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(Added.FirstOrDefault(order => order.Id == id));
+        }
     }
 
     private sealed class FakeShippingSlips(List<string> calls) : IShippingSlipRepository
@@ -222,6 +232,11 @@ public class PlacePurchaseOrderTests
             Added.Add(slip);
 
             return Task.CompletedTask;
+        }
+
+        public Task<ShippingSlip?> GetByPurchaseOrderIdAsync(long purchaseOrderId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(Added.FirstOrDefault(slip => slip.PurchaseOrderId == purchaseOrderId));
         }
     }
 

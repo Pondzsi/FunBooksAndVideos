@@ -38,4 +38,13 @@ internal sealed class PurchaseOrderRepository : IPurchaseOrderRepository
 
         return Task.CompletedTask;
     }
+
+    public Task<PurchaseOrder?> GetByIdAsync(long id, CancellationToken cancellationToken)
+    {
+        return _context.PurchaseOrders
+            .AsNoTracking()
+            .Include(order => order.Items)
+            .ThenInclude(item => item.Product)
+            .FirstOrDefaultAsync(order => order.Id == id, cancellationToken);
+    }
 }

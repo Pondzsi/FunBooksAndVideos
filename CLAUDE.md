@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Greenfield code kata. The solution is scaffolded. The Domain has the product types, `PurchaseOrder`, `Customer` with its `Membership`s, and `ShippingSlip`, and the Application layer has the processor with BR1 and BR2 and the `PlacePurchaseOrder` use case. Infrastructure persists it all in SQL Server through EF Core, with an initial migration and a seeder. Everything is tested, including against a real SQL Server. Not built yet: the API endpoints (controllers, DTOs, error responses) and their tests.
+Greenfield code kata. The solution is scaffolded. The Domain has the product types, `PurchaseOrder`, `Customer` with its `Membership`s, and `ShippingSlip`, and the Application layer has the processor with BR1 and BR2 and the `PlacePurchaseOrder` use case. Infrastructure persists it all in SQL Server through EF Core, with an initial migration and a seeder. The API exposes it with Controllers under `/api/v1`. Everything is tested, including against a real SQL Server and over HTTP. The kata is feature-complete.
 
-The spec is `API Lead - Code Kata.pdf`. `NOTES.md` is the author's first-person running log of assumptions and design decisions; read it before making modeling decisions and treat what it records as settled unless the user says otherwise. `README.md` is empty.
+The spec is `API Lead - Code Kata.pdf`. `NOTES.md` is the author's first-person running log of assumptions and design decisions; read it before making modeling decisions and treat what it records as settled unless the user says otherwise. `README.md` is the reviewer-facing guide (how to run, the API, architecture, assumptions); keep it in step with the code.
 
 ## Stack and structure
 
@@ -26,10 +26,10 @@ Run from the repo root; the solution is `FunBooksAndVideos.slnx`.
 - Build: `dotnet build`
 - Test: `dotnet test` (xUnit). Single test: `dotnet test --filter "FullyQualifiedName~<TestOrClassName>"`.
 - Start the local database: `docker compose up -d --wait` (SQL Server 2022 on `localhost:1433`; stop it with `docker compose down`).
-- Run the API: `dotnet run --project FunBooksAndVideos.Api --launch-profile http` serves `http://localhost:5163`, with the OpenAPI document at `/openapi/v1.json` (Development only). It needs the database running, and on startup it applies pending migrations and seeds.
+- Run the API: `dotnet run --project FunBooksAndVideos.Api --launch-profile http` serves `http://localhost:5163`, with the OpenAPI document at `/openapi/v1.json` and interactive docs at `/scalar` (Development only). `FunBooksAndVideos.Api/FunBooksAndVideos.Api.http` has requests for the PDF example. It needs the database running, and on startup it applies pending migrations and seeds.
 - Restore the EF tool once: `dotnet tool restore`. Add a migration: `dotnet ef migrations add <Name> --project FunBooksAndVideos.Infrastructure --startup-project FunBooksAndVideos.Api --output-dir Persistence/Migrations`.
 
-All tests live in the single `FunBooksAndVideos.Tests` project, in folders that mirror the layers (`Domain/`, `Application/`, `Infrastructure/`). `TestData` holds the PDF example, and the use-case tests use small in-test fakes for the repository interfaces. The `Infrastructure/` tests run against a real SQL Server started by Testcontainers (one container, a fresh migrated and seeded database per test, through the real DI setup). They need Docker and skip themselves when it isn't running; `MigrationsTests` needs no Docker. The project references Application and Infrastructure. Add a reference to Api (plus `Microsoft.AspNetCore.Mvc.Testing` for `WebApplicationFactory`) when the first controller tests need it.
+All tests live in the single `FunBooksAndVideos.Tests` project, in folders that mirror the layers (`Domain/`, `Application/`, `Infrastructure/`, `Api/`). `TestData` holds the PDF example, and the use-case tests use small in-test fakes for the repository interfaces. The `Infrastructure/` and `Api/` tests run against a real SQL Server started by Testcontainers (one container, a fresh migrated and seeded database per test, through the real DI setup). They need Docker and skip themselves when it isn't running; `MigrationsTests` needs no Docker. The `Api/` tests start the whole app in memory with `ApiFactory` (`Program` is public for that) on a fresh database, and read the raw JSON where the wire format matters, because the test client's own enum converter would accept numbers.
 
 ## The task (from the PDF)
 
@@ -67,6 +67,16 @@ Summary of `NOTES.md` plus later decisions (`NOTES.md` wins if they disagree):
 `PurchaseOrderProcessor` runs every registered `IPurchaseOrderRule` (BR1 `ActivateMembershipRule`, BR2 `GenerateShippingSlipRule`) against a `PurchaseOrderProcessingContext`: the order, the customer who placed it, the processing time, and any `ShippingSlip` a rule produced. Rules are synchronous and only change domain objects; loading, saving and publishing belong to the use case. Adding a rule is a new `IPurchaseOrderRule` class plus one registration line in `AddApplication()`; rules run in registration order and the processor never changes.
 
 `PlacePurchaseOrder` is the entry point controllers call. It loads the customer and each product through repository interfaces (throwing `CustomerNotFoundException` or `ProductNotFoundException`, both `NotFoundException`, which the API is expected to map), allocates the PO ID with `IPurchaseOrderRepository.NextIdAsync`, builds the `PurchaseOrder`, runs the processor with the time from `TimeProvider`, stages the order and shipping slip, commits once through `IUnitOfWork` (the customer's new memberships are saved by change tracking, so the order, memberships and slip land together or not at all), and only then publishes the aggregates' domain events.
+
+## API
+
+Routes are `api/v1/<plural-noun>`, and controllers derive from `ApiControllerBase`. Conventions:
+
+- Every error is RFC 9457 Problem Details: `AddProblemDetails`, `UseExceptionHandler` and `UseStatusCodePages` cover unhandled exceptions and bare status codes, and `[ApiController]` covers validation.
+- A missing resource in the URL is a 404: the read use cases (`GetPurchaseOrder`, `GetShippingSlip`, `GetCustomer`, `GetProduct`, `GetProducts`) return null and the controller calls `NotFoundProblem`. A customer or product named in the `POST` body that doesn't exist makes `PlacePurchaseOrder` throw a `NotFoundException`, which `NotFoundExceptionHandler` turns into a 422 naming the ID.
+- Request and response records live in `Contracts/`, separate from domain objects, and responses are built with a static `From(...)`. Validation attributes on a request record go on the constructor parameters (MVC throws if they are on the properties).
+- Enums travel as names. Two lines in `Program.cs` do it and both are needed: `AddJsonOptions` for responses, `ConfigureHttpJsonOptions` for the OpenAPI document.
+- `AddInfrastructure` reads the connection string when the `DbContext` is first created, so a test host can override it after registration.
 
 ## Persistence
 

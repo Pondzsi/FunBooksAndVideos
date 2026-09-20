@@ -25,13 +25,19 @@ public sealed class SqlServerFixture : IAsyncLifetime
         return _container.DisposeAsync().AsTask();
     }
 
-    // The application's own services on a new database that is already migrated and seeded, like the API at startup.
-    public async Task<ServiceProvider> CreateSeededDatabaseAsync(LogSink? sink = null)
+    // A connection string for a database of its own, which does not exist until something migrates it.
+    public string NewConnectionString()
     {
-        var connectionString = new SqlConnectionStringBuilder(_container.GetConnectionString())
+        return new SqlConnectionStringBuilder(_container.GetConnectionString())
         {
             InitialCatalog = $"test_{Guid.NewGuid():N}",
         }.ConnectionString;
+    }
+
+    // The application's own services on a new database that is already migrated and seeded, like the API at startup.
+    public async Task<ServiceProvider> CreateSeededDatabaseAsync(LogSink? sink = null)
+    {
+        var connectionString = NewConnectionString();
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:Default"] = connectionString })

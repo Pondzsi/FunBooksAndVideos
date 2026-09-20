@@ -15,12 +15,15 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("Default")
-            ?? throw new InvalidOperationException("The connection string 'Default' is not configured.");
-
+        // Read when the context is first created, so configuration added after registration (such as a test host's) still applies.
         // Retrying also covers SQL Server still starting up when the API boots.
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(connectionString, sqlServer => sqlServer.EnableRetryOnFailure()));
+        {
+            var connectionString = configuration.GetConnectionString("Default")
+                ?? throw new InvalidOperationException("The connection string 'Default' is not configured.");
+
+            options.UseSqlServer(connectionString, sqlServer => sqlServer.EnableRetryOnFailure());
+        });
 
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IProductRepository, ProductRepository>();

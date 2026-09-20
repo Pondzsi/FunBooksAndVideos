@@ -1,5 +1,6 @@
 using FunBooksAndVideos.Application.Shipping;
 using FunBooksAndVideos.Domain.Shipping;
+using Microsoft.EntityFrameworkCore;
 
 namespace FunBooksAndVideos.Infrastructure.Persistence.Repositories;
 
@@ -17,5 +18,12 @@ internal sealed class ShippingSlipRepository : IShippingSlipRepository
         _context.ShippingSlips.Add(slip);
 
         return Task.CompletedTask;
+    }
+
+    public Task<ShippingSlip?> GetByPurchaseOrderIdAsync(long purchaseOrderId, CancellationToken cancellationToken)
+    {
+        return _context.ShippingSlips
+            .AsNoTracking()
+            .FirstOrDefaultAsync(slip => slip.PurchaseOrderId == purchaseOrderId, cancellationToken);
     }
 }

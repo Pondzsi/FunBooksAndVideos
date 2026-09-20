@@ -17,4 +17,9 @@ internal sealed class ProductRepository : IProductRepository
     {
         return _context.Products.FirstOrDefaultAsync(product => product.Id == id, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return await _context.Products.AsNoTracking().OrderBy(product => product.Id).ToListAsync(cancellationToken);
+    }
 }

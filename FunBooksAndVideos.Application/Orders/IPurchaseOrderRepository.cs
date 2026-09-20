@@ -8,4 +8,6 @@ public interface IPurchaseOrderRepository
     Task<long> NextIdAsync(CancellationToken cancellationToken);
 
     Task AddAsync(PurchaseOrder order, CancellationToken cancellationToken);
+
+    Task<PurchaseOrder?> GetByIdAsync(long id, CancellationToken cancellationToken);
 }

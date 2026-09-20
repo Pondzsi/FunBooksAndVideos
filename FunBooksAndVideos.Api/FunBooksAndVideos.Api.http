@@ -1,0 +1,57 @@
+@host = http://localhost:5163
+
+### The catalog: books, videos and the three memberships
+GET {{host}}/api/v1/products
+
+### The demo customer before ordering: no memberships, no access
+GET {{host}}/api/v1/customers/4567890
+
+### Place the PDF's example order: the First Aid video, "The Girl on the train" and the Book Club membership
+# @name placeOrder
+POST {{host}}/api/v1/purchase-orders
+Content-Type: application/json
+
+{
+  "customerId": 4567890,
+  "productIds": [1, 2, 3]
+}
+
+### BR1: the Book Club membership is now active on the customer
+GET {{host}}/api/v1/customers/4567890
+
+### The order that was just placed, with the price each item had at the time
+GET {{host}}/api/v1/purchase-orders/{{placeOrder.response.body.$.id}}
+
+### BR2: the shipping slip lists only the physical product (the book)
+GET {{host}}/api/v1/purchase-orders/{{placeOrder.response.body.$.id}}/shipping-slip
+
+### A video and a membership need no shipping, so this order gets no slip
+# @name digitalOrder
+POST {{host}}/api/v1/purchase-orders
+Content-Type: application/json
+
+{
+  "customerId": 4567890,
+  "productIds": [1, 4]
+}
+
+### 404: no shipping slip for that order
+GET {{host}}/api/v1/purchase-orders/{{digitalOrder.response.body.$.id}}/shipping-slip
+
+### 422: product 99 does not exist
+POST {{host}}/api/v1/purchase-orders
+Content-Type: application/json
+
+{
+  "customerId": 4567890,
+  "productIds": [1, 99]
+}
+
+### 400: an order needs at least one product
+POST {{host}}/api/v1/purchase-orders
+Content-Type: application/json
+
+{
+  "customerId": 4567890,
+  "productIds": []
+}
