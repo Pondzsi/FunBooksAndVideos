@@ -40,3 +40,32 @@ BR - Business Rule
 - 
 
 # Design Patterns Used
+## Behavior
+- Strategy, in a loose form: IPurchaseOrderRule with ActivateMembershipRule (BR1) and GenerateShippingSlipRule (BR2), run by PurchaseOrderProcessor. A new rule is one class plus one DI line. I run every rule, so it is not Chain of Responsibility
+- Parameter object: PurchaseOrderProcessingContext carries order, customer, time and slip, so every rule takes one argument. It also carries the slip out, which is a bit loose
+- Application service with a command object: PlacePurchaseOrder takes a PlacePurchaseOrderCommand
+- Domain events with Observer, through MediatR: PlacePurchaseOrder publishes MembershipActivated and ShippingSlipGenerated after the commit. Handlers only log for now, and it is in-process, not an outbox
+- Injected clock: TimeProvider goes into PlacePurchaseOrder, and the Domain only gets a time as a parameter
+
+## Domain
+- Aggregate root: AggregateRoot holds the events for Customer and ShippingSlip. PurchaseOrder is an aggregate too but skips it, since it raises no events
+- Encapsulated collections: private lists exposed read-only in the aggregates
+- Static factory method: ShippingSlip.Generate hides the constructor and raises the event
+- Value object: ShippingSlipItem, an immutable record
+- Guard clauses: ThrowIf checks in constructors and factories
+
+## Structure and persistence
+- Dependency inversion: repository and IUnitOfWork interfaces live in Application, Infrastructure implements them, references only point inward
+- Composition root: Program.cs calls AddApplication() and AddInfrastructure()
+- Repository and Unit of Work: ICustomerRepository and the other repositories plus IUnitOfWork. I know both are thin because DbContext already is both, but Application never sees EF
+- Data Mapper: EF Core with IEntityTypeConfiguration classes, so the Domain has no EF attributes
+- Single-table inheritance (TPH): Product subtypes share one table with a Kind column
+
+## API
+- DTOs with static From() mappers: response records in Api/Contracts, so domain objects never go out over HTTP
+- Global exception handler: NotFoundExceptionHandler (IExceptionHandler) returns Problem Details, a 422 for a missing customer or product. Only one handler, so no real chain
+
+## Testing
+- Object Mother: TestData with NewCustomer() and PdfExampleOrder()
+- Hand-written fakes and spies, no mocking library: FakeOrders, FakeUnitOfWork, FakePublisher. A shared call log checks events go out after the commit
+- Test fixture with Testcontainers: SqlServerFixture, one SQL Server container with a new database per test. ApiFactory runs the API in memory
