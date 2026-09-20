@@ -1,0 +1,575 @@
+/*
+  The page is a desk covered in ledger-green paper. Anything that could be printed (the order slip, the shipping
+  slip, the selected customer, the form fields) is white paper on it. Text is dark blue ink. The violet of a
+  rubber stamp marks the main action and the outcome of a business rule. Book and video get their own hue.
+*/
+:root {
+  color-scheme: light;
+
+  --desk: #e3eae4;
+  --paper: #ffffff;
+  --ink: #17224a;
+  --ink-soft: #4a5680;
+  --rule: #b3c0b7;
+  --stamp: #5b2a9e;
+  --book: #1d4f7c;
+  --book-tint: #d7e6f4;
+  --video: #7a4b00;
+  --video-tint: #f4e4bf;
+  --error: #9b1c26;
+  --error-tint: #f9e3e3;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: "Avenir Next", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+  --gutter: 24px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--desk);
+  color: var(--ink);
+  font: 0.9375rem/1.5 var(--sans);
+}
+
+p {
+  margin: 0 0 8px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--stamp);
+  outline-offset: 2px;
+}
+
+/* Page layout */
+
+.masthead,
+.page {
+  width: min(1180px, 100% - 2 * var(--gutter));
+  margin-inline: auto;
+}
+
+.masthead {
+  padding: 36px 0 14px;
+  border-bottom: 3px double var(--ink);
+  margin-bottom: 32px;
+}
+
+.masthead h1 {
+  margin: 0 0 4px;
+  font: 700 2.25rem/1.1 var(--serif);
+  letter-spacing: -0.01em;
+}
+
+.masthead p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.page {
+  padding-bottom: 72px;
+}
+
+/* Reference data on the left, the order being made on the right. They stack on a narrow screen. */
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 56px;
+}
+
+@media (max-width: 900px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --gutter: 16px;
+  }
+}
+
+section {
+  margin-bottom: 44px;
+}
+
+h2 {
+  margin: 0 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--ink);
+  font: 700 1.375rem/1.2 var(--serif);
+}
+
+.hint {
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+}
+
+.empty {
+  padding: 14px 16px;
+  border: 1px dashed var(--ink-soft);
+  border-radius: 2px;
+  color: var(--ink-soft);
+}
+
+.id {
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* Forms and buttons */
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.field.grow {
+  flex: 1 1 10rem;
+}
+
+.field.narrow {
+  width: 6.5rem;
+}
+
+label,
+legend {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  padding: 0 0 4px;
+}
+
+.checks {
+  display: flex;
+  gap: 14px;
+  padding: 6px 0;
+}
+
+.checks label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9375rem;
+  font-weight: 400;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+input[type="text"],
+input:not([type]),
+input[type="number"],
+select {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--ink-soft);
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+input[type="radio"],
+input[type="checkbox"] {
+  accent-color: var(--stamp);
+}
+
+button {
+  padding: 6px 14px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+button:hover {
+  background: #f1f5f2;
+}
+
+button.primary {
+  border-color: var(--stamp);
+  background: var(--stamp);
+  color: #fff;
+}
+
+button.primary:hover {
+  background: #492280;
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+button.link:hover {
+  background: none;
+  color: var(--ink);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.actions {
+  margin-top: 18px;
+  align-items: center;
+}
+
+.try-error {
+  margin-top: 10px;
+  align-items: baseline;
+  gap: 4px 14px;
+}
+
+.filter {
+  max-width: 22rem;
+  margin-bottom: 14px;
+}
+
+/* Customers */
+
+.customer {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.customer:has(input:checked) {
+  background: var(--paper);
+}
+
+.customer input {
+  align-self: start;
+  margin-top: 4px;
+}
+
+.customer p {
+  margin: 0 0 4px;
+  font-weight: 400;
+}
+
+.customer-name {
+  font-size: 1rem;
+}
+
+/* Tables */
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--ink);
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+td {
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+th.num,
+td.num {
+  padding-right: 0;
+  text-align: right;
+}
+
+/* Tighter on a phone, so the catalog's price column stays in view without scrolling sideways.
+   This comes after the table rules above because rules of equal weight are decided by their order. */
+@media (max-width: 480px) {
+  th,
+  td {
+    padding-right: 6px;
+  }
+
+  th.num,
+  td.num {
+    padding-right: 0;
+  }
+}
+
+/* Badges. The kind says how a product is handled: a solid outline is shipped, a dashed one needs nothing,
+   a violet one is activated. The category says book or video. */
+
+.kind {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.kind[data-kind="Digital"] {
+  border-style: dashed;
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+}
+
+.kind[data-kind="Membership"] {
+  border-color: var(--stamp);
+  color: var(--stamp);
+}
+
+.tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  vertical-align: baseline;
+}
+
+.category {
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.category[data-category="Book"] {
+  background: var(--book-tint);
+  color: var(--book);
+}
+
+.category[data-category="Video"] {
+  background: var(--video-tint);
+  color: var(--video);
+}
+
+/* Order lines, set like a receipt */
+
+.lines {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lines li {
+  padding: 7px 0;
+}
+
+.line-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.leader {
+  flex: 1;
+  min-width: 12px;
+  margin-bottom: 0.3em;
+  border-bottom: 2px dotted var(--ink-soft);
+  opacity: 0.6;
+}
+
+.line-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.line-action {
+  margin-left: auto;
+}
+
+.total {
+  display: flex;
+  justify-content: space-between;
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 3px double var(--ink);
+  font: 700 1.2rem/1.3 var(--serif);
+}
+
+/* The slips: the one raised object on the page */
+
+.slip {
+  position: relative;
+  margin-bottom: 18px;
+  padding: 22px 24px 20px;
+  background: var(--paper);
+  box-shadow:
+    0 1px 2px rgb(23 34 74 / 0.14),
+    0 16px 26px -18px rgb(23 34 74 / 0.5);
+}
+
+.slip-title {
+  margin: 0 0 2px;
+  font: 700 1.5rem/1.2 var(--serif);
+}
+
+.slip-shipping {
+  margin-left: 32px;
+  padding: 18px 22px;
+}
+
+.slip-shipping .slip-title {
+  font-size: 1.2rem;
+}
+
+.parcel {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+/* The tear-off line between the order and what the rules did with it */
+.perforation {
+  position: relative;
+  margin: 22px -24px;
+  border-top: 2px dashed var(--rule);
+}
+
+.perforation::before,
+.perforation::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--desk);
+}
+
+.perforation::before {
+  left: -9px;
+}
+
+.perforation::after {
+  right: -9px;
+}
+
+.outcome {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.outcome:last-child {
+  margin-bottom: 0;
+}
+
+.outcome h4 {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+}
+
+.outcome p {
+  margin: 0 0 4px;
+}
+
+/* The one moment of motion: a stamp landing when a business rule fired */
+.stamp {
+  flex: none;
+  padding: 0 10px;
+  border: 2px solid var(--stamp);
+  border-radius: 4px;
+  color: var(--stamp);
+  font: 700 1.05rem/1.5 var(--serif);
+  transform: rotate(-3deg);
+  animation: stamp-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(-3deg) scale(1.7);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-3deg) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp {
+    animation: none;
+  }
+}
+
+/* Errors */
+
+.notice {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border-left: 4px solid var(--error);
+  background: var(--error-tint);
+}
+
+.notice p {
+  margin: 0 0 4px;
+}
+
+.notice-title {
+  color: var(--error);
+  font-weight: 700;
+}
+
+.notice-status {
+  float: right;
+  margin-left: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.notice ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+code {
+  font: 0.85em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

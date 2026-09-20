@@ -32,6 +32,16 @@ The response is `201 Created` with a `Location` header, the priced order (total 
 
 If the API exits with "Could not prepare the database on ...", SQL Server isn't reachable: start it with `docker compose up -d --wait` and run the API again.
 
+## Demo UI
+
+An optional web page for clicking through the API instead of using curl: customers, the catalog, an order builder with the PDF's example, the result of an order (BR1, BR2 and the shipping slip) and the list of orders. It is a small Vite, React and TypeScript app in `FunBooksAndVideos.Web` that calls the real API through the dev server's proxy, so there is no CORS setup and the API is unchanged.
+
+```bash
+cd FunBooksAndVideos.Web && npm install && npm run dev
+```
+
+Then open **http://localhost:5173**. It needs Node 20.19 or newer and the API running on port 5163 (the `http` launch profile above). To use an API on another port, set `API_URL`, for example `API_URL=http://localhost:5199 npm run dev`.
+
 ## What it does
 
 Processing a purchase order applies the two business rules from the brief:
