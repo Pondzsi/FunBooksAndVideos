@@ -35,3 +35,8 @@ BR - Business Rule
 - I am using AI to help me write code faster
 - I am using Clean Arhitecture to separate things out
 - I am using .NET 10 with Controllers not Minimal API-s, its just personal preference
+- I am building the application layer by layer and at the end I might refactor certain parts if I am not happy with them
+- I am using docker for database since its easy to spin it up on a new machine
+- 
+
+# Design Patterns Used
