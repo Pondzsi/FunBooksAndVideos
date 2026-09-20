@@ -6,11 +6,19 @@ namespace FunBooksAndVideos.Domain.Shipping;
 
 public sealed class ShippingSlip : AggregateRoot
 {
-    private ShippingSlip(long purchaseOrderId, long customerId, IReadOnlyList<PurchaseOrderItem> items, DateTimeOffset generatedAt)
+    private readonly List<ShippingSlipItem> _items;
+
+    // For EF Core.
+    private ShippingSlip()
+    {
+        _items = [];
+    }
+
+    private ShippingSlip(long purchaseOrderId, long customerId, List<ShippingSlipItem> items, DateTimeOffset generatedAt)
     {
         PurchaseOrderId = purchaseOrderId;
         CustomerId = customerId;
-        Items = items;
+        _items = items;
         GeneratedAt = generatedAt;
     }
 
@@ -19,7 +27,7 @@ public sealed class ShippingSlip : AggregateRoot
 
     public long CustomerId { get; }
 
-    public IReadOnlyList<PurchaseOrderItem> Items { get; }
+    public IReadOnlyList<ShippingSlipItem> Items => _items.AsReadOnly();
 
     public DateTimeOffset GeneratedAt { get; }
 
@@ -27,14 +35,17 @@ public sealed class ShippingSlip : AggregateRoot
     {
         ArgumentNullException.ThrowIfNull(order);
 
-        var physicalItems = order.Items.Where(item => item.Product is PhysicalProduct).ToList();
+        var items = order.Items
+            .Where(item => item.Product is PhysicalProduct)
+            .Select(item => new ShippingSlipItem(item.Product.Id, item.Product.Name))
+            .ToList();
 
-        if (physicalItems.Count == 0)
+        if (items.Count == 0)
         {
             throw new ArgumentException("A shipping slip needs an order with at least one physical product.", nameof(order));
         }
 
-        var slip = new ShippingSlip(order.Id, order.CustomerId, physicalItems.AsReadOnly(), generatedAt);
+        var slip = new ShippingSlip(order.Id, order.CustomerId, items, generatedAt);
         slip.Raise(new ShippingSlipGenerated(order.Id, order.CustomerId));
 
         return slip;

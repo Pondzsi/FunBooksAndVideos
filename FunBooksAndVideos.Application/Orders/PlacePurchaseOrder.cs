@@ -1,3 +1,4 @@
+using FunBooksAndVideos.Application.Common;
 using FunBooksAndVideos.Application.Customers;
 using FunBooksAndVideos.Application.Orders.Processing;
 using FunBooksAndVideos.Application.Products;
@@ -17,6 +18,7 @@ public sealed class PlacePurchaseOrder
     private readonly IProductRepository _products;
     private readonly IPurchaseOrderRepository _orders;
     private readonly IShippingSlipRepository _shippingSlips;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly PurchaseOrderProcessor _processor;
     private readonly IPublisher _publisher;
     private readonly TimeProvider _timeProvider;
@@ -26,6 +28,7 @@ public sealed class PlacePurchaseOrder
         IProductRepository products,
         IPurchaseOrderRepository orders,
         IShippingSlipRepository shippingSlips,
+        IUnitOfWork unitOfWork,
         PurchaseOrderProcessor processor,
         IPublisher publisher,
         TimeProvider timeProvider)
@@ -34,6 +37,7 @@ public sealed class PlacePurchaseOrder
         _products = products;
         _orders = orders;
         _shippingSlips = shippingSlips;
+        _unitOfWork = unitOfWork;
         _processor = processor;
         _publisher = publisher;
         _timeProvider = timeProvider;
@@ -63,19 +67,21 @@ public sealed class PlacePurchaseOrder
         _processor.Process(context);
 
         await _orders.AddAsync(order, cancellationToken);
-        await _customers.SaveAsync(customer, cancellationToken);
 
         if (context.ShippingSlip is not null)
         {
             await _shippingSlips.AddAsync(context.ShippingSlip, cancellationToken);
         }
 
+        // The order, the customer's new memberships and the slip are saved together, or not at all.
+        await _unitOfWork.CommitAsync(cancellationToken);
+
         await PublishDomainEventsAsync(customer, context.ShippingSlip, cancellationToken);
 
         return new PlacePurchaseOrderResult(order, context.ShippingSlip);
     }
 
-    // Published only after everything is saved, so handlers never see state that was not persisted.
+    // Published only after the commit, so handlers never see state that was not persisted.
     private async Task PublishDomainEventsAsync(Customer customer, ShippingSlip? shippingSlip, CancellationToken cancellationToken)
     {
         List<AggregateRoot> aggregates = [customer];

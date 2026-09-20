@@ -2,6 +2,12 @@ namespace FunBooksAndVideos.Domain.Products;
 
 public abstract class Product
 {
+    // For EF Core.
+    protected Product()
+    {
+        Name = null!;
+    }
+
     protected Product(long id, string name, decimal price)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);

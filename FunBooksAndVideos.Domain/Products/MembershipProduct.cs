@@ -15,5 +15,11 @@ public sealed class MembershipProduct : Product
         }
     }
 
+    // For EF Core.
+    private MembershipProduct()
+    {
+        GrantedCategories = null!;
+    }
+
     public IReadOnlySet<ProductCategory> GrantedCategories { get; }
 }

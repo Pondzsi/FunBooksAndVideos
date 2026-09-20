@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Greenfield code kata. The solution is scaffolded. The Domain has the product types, `PurchaseOrder`, `Customer` with its `Membership`s, and `ShippingSlip`, and the Application layer has the processor with BR1 and BR2 and the `PlacePurchaseOrder` use case with its repository interfaces, all tested. Not built yet: Infrastructure (repository implementations, `TimeProvider`, seed catalog) and any endpoints.
+Greenfield code kata. The solution is scaffolded. The Domain has the product types, `PurchaseOrder`, `Customer` with its `Membership`s, and `ShippingSlip`, and the Application layer has the processor with BR1 and BR2 and the `PlacePurchaseOrder` use case. Infrastructure persists it all in SQL Server through EF Core, with an initial migration and a seeder. Everything is tested, including against a real SQL Server. Not built yet: the API endpoints (controllers, DTOs, error responses) and their tests.
 
 The spec is `API Lead - Code Kata.pdf`. `NOTES.md` is the author's first-person running log of assumptions and design decisions; read it before making modeling decisions and treat what it records as settled unless the user says otherwise. `README.md` is empty.
 
@@ -14,7 +14,7 @@ C# on .NET, exposed as a Web API built with **Controllers** (`[ApiController]` c
 
 - **Domain** (innermost): entities and business types such as the `Product` subtypes, `PurchaseOrder`, `Membership`, `ShippingSlip`. References nothing else except `MediatR.Contracts` (interfaces only, for `IDomainEvent`).
 - **Application**: the `PlacePurchaseOrder` use case, the Purchase Order Processor and the business rules it runs (BR1, BR2), plus interfaces for anything it needs from outside, such as persistence.
-- **Infrastructure**: implementations of those interfaces.
+- **Infrastructure**: implementations of those interfaces: EF Core on SQL Server (`AppDbContext`, mappings, repositories, unit of work, migrations, seeder).
 - **API** (outermost): Controllers, request/response DTOs, and the DI composition root.
 
 Each layer is its own project in a `FunBooksAndVideos.<Layer>` folder at the repo root (no `src/` or `tests/` folders), and project references enforce the rule (Application → Domain, Infrastructure → Application, Api → Application + Infrastructure), so an outward reference won't compile. Don't add one. Shared settings (`net10.0`, nullable, implicit usings) live in `Directory.Build.props`, so leave them out of `.csproj` files. Application and Infrastructure each expose a `DependencyInjection.cs` extension (`AddApplication()`, `AddInfrastructure()`) that `Program.cs` calls; register new services there, not in the Api.
@@ -25,9 +25,11 @@ Run from the repo root; the solution is `FunBooksAndVideos.slnx`.
 
 - Build: `dotnet build`
 - Test: `dotnet test` (xUnit). Single test: `dotnet test --filter "FullyQualifiedName~<TestOrClassName>"`.
-- Run the API: `dotnet run --project FunBooksAndVideos.Api --launch-profile http` serves `http://localhost:5163`, with the OpenAPI document at `/openapi/v1.json` (Development only).
+- Start the local database: `docker compose up -d --wait` (SQL Server 2022 on `localhost:1433`; stop it with `docker compose down`).
+- Run the API: `dotnet run --project FunBooksAndVideos.Api --launch-profile http` serves `http://localhost:5163`, with the OpenAPI document at `/openapi/v1.json` (Development only). It needs the database running, and on startup it applies pending migrations and seeds.
+- Restore the EF tool once: `dotnet tool restore`. Add a migration: `dotnet ef migrations add <Name> --project FunBooksAndVideos.Infrastructure --startup-project FunBooksAndVideos.Api --output-dir Persistence/Migrations`.
 
-All tests live in the single `FunBooksAndVideos.Tests` project, in folders that mirror the layers (`Domain/`, `Application/`). `TestData` holds the PDF example, and the use-case tests use small in-test fakes for the repository interfaces. The project references only Application, so Domain comes in transitively. Add references to Api (plus `Microsoft.AspNetCore.Mvc.Testing` for `WebApplicationFactory`) and Infrastructure when the first controller and repository tests need them.
+All tests live in the single `FunBooksAndVideos.Tests` project, in folders that mirror the layers (`Domain/`, `Application/`, `Infrastructure/`). `TestData` holds the PDF example, and the use-case tests use small in-test fakes for the repository interfaces. The `Infrastructure/` tests run against a real SQL Server started by Testcontainers (one container, a fresh migrated and seeded database per test, through the real DI setup). They need Docker and skip themselves when it isn't running; `MigrationsTests` needs no Docker. The project references Application and Infrastructure. Add a reference to Api (plus `Microsoft.AspNetCore.Mvc.Testing` for `WebApplicationFactory`) when the first controller tests need it.
 
 ## The task (from the PDF)
 
@@ -54,9 +56,9 @@ Summary of `NOTES.md` plus later decisions (`NOTES.md` wins if they disagree):
 - Premium is one order line and one account `Membership` covering both categories. Access is the union of the customer's active memberships, so there is no auto-upgrade logic.
 - `Customer.ActivateMembership` copies the granted categories from the `MembershipProduct` (so later catalog edits don't change what the customer got), takes the activation time as a parameter (the Domain never reads the clock), and does nothing if the customer already holds that product.
 - Aggregates (`Customer`, `ShippingSlip`) derive from `AggregateRoot` and record domain events (`MembershipActivated`, `ShippingSlipGenerated`) rather than calling anything. `PlacePurchaseOrder` publishes them through MediatR's `IPublisher` after saving, and the handlers are thin loggers. MediatR is pinned to 12.5.0, the last Apache-2.0 release (13 and later ship a custom license), so check the license before upgrading it; `MediatR.Contracts` 2.0.1 is Apache-2.0.
-- `ShippingSlip` is identified by its order's ID (one slip per order), lists the order's physical items, and is created with `ShippingSlip.Generate(order, at)`, which needs at least one physical product.
+- `ShippingSlip` is identified by its order's ID (one slip per order), lists the order's physical products as `ShippingSlipItem(ProductId, ProductName)` lines, and is created with `ShippingSlip.Generate(order, at)`, which needs at least one physical product.
 - Prices come only from the catalog: callers send product IDs, never prices. Each `PurchaseOrderItem` keeps the price at order time, and the total is computed. There are no quantities (the PDF has one item line per product purchased).
-- IDs are numeric (`long`). The server generates the PO ID before the order is constructed (for example allocated through the repository), so `PurchaseOrder` always has an identity. The customer ID is supplied by the caller and must exist.
+- IDs are numeric (`long`). The server generates the PO ID before the order is constructed, from the SQL Server sequence `PurchaseOrderIds` through `IPurchaseOrderRepository.NextIdAsync`, so `PurchaseOrder` always has an identity. The customer ID is supplied by the caller and must exist.
 - Domain invariants are guard clauses that throw (`Argument*Exception`); there is no Result type.
 - Assumed, since the PDF doesn't say: books are physical; videos and memberships are digital. An order of only videos and memberships therefore needs no shipping slip.
 
@@ -64,4 +66,16 @@ Summary of `NOTES.md` plus later decisions (`NOTES.md` wins if they disagree):
 
 `PurchaseOrderProcessor` runs every registered `IPurchaseOrderRule` (BR1 `ActivateMembershipRule`, BR2 `GenerateShippingSlipRule`) against a `PurchaseOrderProcessingContext`: the order, the customer who placed it, the processing time, and any `ShippingSlip` a rule produced. Rules are synchronous and only change domain objects; loading, saving and publishing belong to the use case. Adding a rule is a new `IPurchaseOrderRule` class plus one registration line in `AddApplication()`; rules run in registration order and the processor never changes.
 
-`PlacePurchaseOrder` is the entry point controllers call. It loads the customer and each product through repository interfaces (throwing `CustomerNotFoundException` or `ProductNotFoundException`, both `NotFoundException`, which the API is expected to map), allocates the PO ID with `IPurchaseOrderRepository.NextIdAsync`, builds the `PurchaseOrder`, runs the processor with the time from `TimeProvider`, saves the order, customer and shipping slip, and only then publishes the aggregates' domain events. The saves are not transactional yet: add a unit-of-work port when a real database is chosen. Infrastructure must supply the four repository implementations and register `TimeProvider`.
+`PlacePurchaseOrder` is the entry point controllers call. It loads the customer and each product through repository interfaces (throwing `CustomerNotFoundException` or `ProductNotFoundException`, both `NotFoundException`, which the API is expected to map), allocates the PO ID with `IPurchaseOrderRepository.NextIdAsync`, builds the `PurchaseOrder`, runs the processor with the time from `TimeProvider`, stages the order and shipping slip, commits once through `IUnitOfWork` (the customer's new memberships are saved by change tracking, so the order, memberships and slip land together or not at all), and only then publishes the aggregates' domain events.
+
+## Persistence
+
+EF Core on SQL Server; the mappings live in `Infrastructure/Persistence/Configurations`, so Domain stays attribute-free. Conventions worth knowing:
+
+- The Domain types carry private parameterless constructors marked "For EF Core", and their item lists sit in `List<>` fields that the mappings point at.
+- EF only maps a read-only property when it is configured (or is a key or foreign key), so a new domain property needs an explicit `Property(...)` line. A miss makes `Migrate` refuse to run and fails `MigrationsTests`.
+- Product types share one table with a `Kind` discriminator. Enums and category sets are stored by name (`Book,Video`), not by number.
+- `Membership` and the order and slip lines are owned collections. A customer can hold a product's membership once (unique index), and each order line keeps the price at order time.
+- The API applies migrations and then runs `Seeder` at startup (`InitializeDatabaseAsync`). The seeder fills an empty database only: products 1 to 7 (1 to 3 are the PDF's example, 4 and 5 the other memberships) and customer `4567890`.
+- The connection string is `ConnectionStrings:Default` in `appsettings.json`, pointing at the compose container. Its `sa` password is a throwaway for that local container.
+- Generate the migration with the local `dotnet ef` tool, and change an unreleased migration by removing and re-adding it rather than stacking fix-ups.

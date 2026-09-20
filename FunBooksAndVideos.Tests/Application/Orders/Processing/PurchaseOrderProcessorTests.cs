@@ -21,7 +21,7 @@ public class PurchaseOrderProcessorTests
         Assert.True(context.Customer.HasAccessTo(ProductCategory.Book));
         Assert.False(context.Customer.HasAccessTo(ProductCategory.Video));
         var slip = Assert.IsType<FunBooksAndVideos.Domain.Shipping.ShippingSlip>(context.ShippingSlip);
-        Assert.Same(TestData.GirlOnTheTrain, Assert.Single(slip.Items).Product);
+        Assert.Equal(TestData.GirlOnTheTrain.Id, Assert.Single(slip.Items).ProductId);
     }
 
     [Fact]

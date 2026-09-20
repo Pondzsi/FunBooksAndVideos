@@ -70,12 +70,12 @@ public class ApplicationWiringTests
     }
 }
 
-internal sealed class LogSink
+public sealed class LogSink
 {
     public List<string> Messages { get; } = [];
 }
 
-internal sealed class ListLogger<T>(LogSink sink) : ILogger<T>
+public sealed class ListLogger<T>(LogSink sink) : ILogger<T>
 {
     public IDisposable? BeginScope<TState>(TState state)
         where TState : notnull

@@ -11,7 +11,7 @@ public class ShippingSlipTests
         var slip = ShippingSlip.Generate(TestData.PdfExampleOrder(), TestData.Now);
 
         var item = Assert.Single(slip.Items);
-        Assert.Same(TestData.GirlOnTheTrain, item.Product);
+        Assert.Equal(new ShippingSlipItem(TestData.GirlOnTheTrain.Id, TestData.GirlOnTheTrain.Name), item);
     }
 
     [Fact]

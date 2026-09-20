@@ -14,6 +14,12 @@ public sealed class Membership
         ActivatedAt = activatedAt;
     }
 
+    // For EF Core.
+    private Membership()
+    {
+        GrantedCategories = null!;
+    }
+
     public long ProductId { get; }
 
     public IReadOnlySet<ProductCategory> GrantedCategories { get; }

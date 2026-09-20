@@ -1,3 +1,4 @@
+using FunBooksAndVideos.Application.Common;
 using FunBooksAndVideos.Application.Customers;
 using FunBooksAndVideos.Application.Orders;
 using FunBooksAndVideos.Application.Orders.Processing;
@@ -23,24 +24,38 @@ public class PlacePurchaseOrderTests
         Assert.Equal(3344656, result.Order.Id);
         Assert.Equal(48.50m, result.Order.Total);
         Assert.Same(result.Order, Assert.Single(fixture.Orders.Added));
-        Assert.Same(fixture.Customer, Assert.Single(fixture.Customers.Saved));
         Assert.True(fixture.Customer.HasAccessTo(ProductCategory.Book));
         Assert.NotNull(result.ShippingSlip);
         Assert.Same(result.ShippingSlip, Assert.Single(fixture.Slips.Added));
+        Assert.Equal(1, fixture.UnitOfWork.Commits);
     }
 
     [Fact]
-    public async Task Publishes_the_domain_events_only_after_everything_is_saved()
+    public async Task Commits_once_after_staging_and_publishes_the_domain_events_only_after_the_commit()
     {
         var fixture = new Fixture();
 
         await fixture.UseCase.ExecuteAsync(new(4567890, [1, 2, 3]), CancellationToken.None);
 
+        var lastStage = fixture.Calls.FindLastIndex(call => call.StartsWith("stage:"));
+        var commit = fixture.Calls.IndexOf("commit");
         var firstPublish = fixture.Calls.FindIndex(call => call.StartsWith("publish:"));
-        var lastSave = fixture.Calls.FindLastIndex(call => call.StartsWith("save:"));
-        Assert.True(firstPublish > lastSave);
+        Assert.True(lastStage < commit);
+        Assert.True(commit < firstPublish);
         Assert.Contains("publish:MembershipActivated", fixture.Calls);
         Assert.Contains("publish:ShippingSlipGenerated", fixture.Calls);
+    }
+
+    [Fact]
+    public async Task Publishes_nothing_when_the_commit_fails()
+    {
+        var fixture = new Fixture();
+        fixture.UnitOfWork.FailOnCommit = true;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => fixture.UseCase.ExecuteAsync(new(4567890, [1, 2, 3]), CancellationToken.None));
+
+        Assert.DoesNotContain(fixture.Calls, call => call.StartsWith("publish:"));
     }
 
     [Fact]
@@ -55,7 +70,7 @@ public class PlacePurchaseOrderTests
     }
 
     [Fact]
-    public async Task Saves_no_shipping_slip_when_the_order_has_no_physical_product()
+    public async Task Stages_no_shipping_slip_when_the_order_has_no_physical_product()
     {
         var fixture = new Fixture();
 
@@ -78,7 +93,7 @@ public class PlacePurchaseOrderTests
     }
 
     [Fact]
-    public async Task Fails_for_an_unknown_customer_without_saving_or_publishing()
+    public async Task Fails_for_an_unknown_customer_without_staging_committing_or_publishing()
     {
         var fixture = new Fixture();
 
@@ -90,7 +105,7 @@ public class PlacePurchaseOrderTests
     }
 
     [Fact]
-    public async Task Fails_for_an_unknown_product_without_saving_or_publishing()
+    public async Task Fails_for_an_unknown_product_without_staging_committing_or_publishing()
     {
         var fixture = new Fixture();
 
@@ -103,7 +118,7 @@ public class PlacePurchaseOrderTests
     }
 
     [Fact]
-    public async Task Rejects_an_order_without_products_without_saving_or_publishing()
+    public async Task Rejects_an_order_without_products_without_staging_committing_or_publishing()
     {
         var fixture = new Fixture();
 
@@ -117,9 +132,9 @@ public class PlacePurchaseOrderTests
     {
         public Fixture()
         {
-            Customers = new FakeCustomers(Calls);
             Orders = new FakeOrders(Calls);
             Slips = new FakeShippingSlips(Calls);
+            UnitOfWork = new FakeUnitOfWork(Calls);
 
             Customers.Store[Customer.Id] = Customer;
 
@@ -135,17 +150,18 @@ public class PlacePurchaseOrderTests
                 Products,
                 Orders,
                 Slips,
+                UnitOfWork,
                 processor,
                 new FakePublisher(Calls),
                 new FixedTimeProvider(TestData.Now));
         }
 
-        // "save:..." and "publish:..." entries, in the order they happened.
+        // "stage:...", "commit" and "publish:..." entries, in the order they happened.
         public List<string> Calls { get; } = [];
 
         public Customer Customer { get; } = TestData.NewCustomer();
 
-        public FakeCustomers Customers { get; }
+        public FakeCustomers Customers { get; } = new();
 
         public FakeProducts Products { get; } = new();
 
@@ -153,26 +169,18 @@ public class PlacePurchaseOrderTests
 
         public FakeShippingSlips Slips { get; }
 
+        public FakeUnitOfWork UnitOfWork { get; }
+
         public PlacePurchaseOrder UseCase { get; }
     }
 
-    private sealed class FakeCustomers(List<string> calls) : ICustomerRepository
+    private sealed class FakeCustomers : ICustomerRepository
     {
         public Dictionary<long, Customer> Store { get; } = [];
-
-        public List<Customer> Saved { get; } = [];
 
         public Task<Customer?> GetByIdAsync(long id, CancellationToken cancellationToken)
         {
             return Task.FromResult(Store.GetValueOrDefault(id));
-        }
-
-        public Task SaveAsync(Customer customer, CancellationToken cancellationToken)
-        {
-            calls.Add("save:customer");
-            Saved.Add(customer);
-
-            return Task.CompletedTask;
         }
     }
 
@@ -197,7 +205,7 @@ public class PlacePurchaseOrderTests
 
         public Task AddAsync(PurchaseOrder order, CancellationToken cancellationToken)
         {
-            calls.Add("save:order");
+            calls.Add("stage:order");
             Added.Add(order);
 
             return Task.CompletedTask;
@@ -210,8 +218,28 @@ public class PlacePurchaseOrderTests
 
         public Task AddAsync(ShippingSlip slip, CancellationToken cancellationToken)
         {
-            calls.Add("save:shipping-slip");
+            calls.Add("stage:shipping-slip");
             Added.Add(slip);
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeUnitOfWork(List<string> calls) : IUnitOfWork
+    {
+        public int Commits { get; private set; }
+
+        public bool FailOnCommit { get; set; }
+
+        public Task CommitAsync(CancellationToken cancellationToken)
+        {
+            if (FailOnCommit)
+            {
+                throw new InvalidOperationException("The commit failed.");
+            }
+
+            calls.Add("commit");
+            Commits++;
 
             return Task.CompletedTask;
         }
